@@ -1,0 +1,86 @@
+#!/usr/bin/env python2
+
+##
+## Program name: chatserve
+## Author: Andrew Swaim
+## Date: October 2019
+## Description: A chat host that waits on a port specified on the command line for 
+##     connections from other chat hosts. Once a connection is established, can chat 
+##     back and forth with the other host until one of them sends a "\quit" command,
+##     in which case the connection is closed but chatserve will remain
+##     active waiting for more connections.
+##
+
+import sys
+import re
+from socket import *
+
+# The main function that sets up the socket at the specified port and starts the server
+# Pre-conditions: chatserve application is run, specifying a port
+# Post-conditions: chatserve server is running and listening for connections
+def run():
+    if len(sys.argv) != 2:
+        sys.exit("Usage: chatserve [port]")
+
+    # setup the socket connection
+    sock = setup()
+
+    # prompt for a get the user's name
+    user = getUser()
+    
+    # run indefinitely until a SIGINT is received
+    while True:
+        print("Welcome " + user + "!")
+        print("You are in the waiting room. Waiting for someone to join...")
+        
+        # a new connection is established
+        conn, addr = sock.accept()
+
+        # handshake with client to receive client's name 
+        client = conn.recv(11)
+        conn.send(user)
+        print(client + " has joined the chatroom!")
+
+        # begin chat loop
+        chat(conn, user, client)
+       
+        # if the chat loop ends, close the connection
+        conn.close()
+
+#
+# Pre-conditions:
+# Post-conditions:
+def setup():
+    # python socket programming info from official docs
+    # https://docs.python.org/2/howto/sockets.html
+    port = sys.argv[1]
+    sock = socket(AF_INET, SOCK_STREAM)
+    sock.bind((gethostname(), int(port)))
+    sock.listen(1)
+    return sock
+
+#
+# Pre-conditions:
+# Post-conditions:
+def getUser():
+    # python regex info from official docs
+    # https://docs.python.org/2/library/re.html
+    user = raw_input("Please enter a one word username, up to 10 characters: ")
+    regex = re.compile("^[A-Za-z]{1,10}$")
+    while not regex.match(user):
+        print("Invalid username format")
+        user = raw_input("Please enter a one word username, up to 10 characters: ")
+    return user
+
+#
+# Pre-conditions:
+# Post-conditions:
+def chat(conn, user, client):
+
+
+
+
+#########################################################################
+
+if __name__ == "__main__":
+    run()
