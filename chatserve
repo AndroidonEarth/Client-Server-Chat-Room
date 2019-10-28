@@ -15,42 +15,44 @@ import sys
 import re
 from socket import *
 
-# The main function that sets up the socket at the specified port and starts the server
-# Pre-conditions: chatserve application is run, specifying a port
+MSGLEN = 500
+
+# Function name: run()
+# Description: The main function that starts the server
+# Pre-conditions: chatserve application is run, specifying a port on the command line
 # Post-conditions: chatserve server is running and listening for connections
 def run():
+    
     if len(sys.argv) != 2:
         sys.exit("Usage: chatserve [port]")
 
-    # setup the socket connection
-    sock = setup()
-
-    # prompt for a get the user's name
-    user = getUser()
+    sock = setup()   # setup the socket connection
+    user = getUser() # prompt for a get the user's name
     
     # run indefinitely until a SIGINT is received
+    print("Welcome " + user + "!")
     while True:
-        print("Welcome " + user + "!")
         print("You are in the waiting room. Waiting for someone to join...")
         
         # a new connection is established
         conn, addr = sock.accept()
 
         # handshake with client to receive client's name 
-        client = conn.recv(11)
+        client = conn.recv(11)[:-1] # expect max 10 chars, and remove trailing newline
         conn.send(user)
         print(client + " has joined the chatroom!")
 
-        # begin chat loop
-        chat(conn, user, client)
-       
-        # if the chat loop ends, close the connection
-        conn.close()
+        chat(conn, user, client) # begin chat loop
+        conn.close()             # if the chat loop ends, close the connection
 
-#
-# Pre-conditions:
-# Post-conditions:
+# Function name: setup()
+# Description: Sets up a TCP socket on the port num specified on the command line and 
+#     begins listening
+# Pre-conditions: a port number was specified on the command line when the application
+#     was started
+# Post-conditions: a TCP socket is created on the specified port and begins listening
 def setup():
+
     # python socket programming info from official docs
     # https://docs.python.org/2/howto/sockets.html
     port = sys.argv[1]
@@ -59,10 +61,13 @@ def setup():
     sock.listen(1)
     return sock
 
-#
-# Pre-conditions:
-# Post-conditions:
+# Function name: getUser()
+# Description: Prompts for and gets username, using regex matching for validation of
+#     format
+# Pre-conditions: None
+# Post-conditions: A correctly formatted and validated username is returned
 def getUser():
+
     # python regex info from official docs
     # https://docs.python.org/2/library/re.html
     user = raw_input("Please enter a one word username, up to 10 characters: ")
@@ -72,12 +77,44 @@ def getUser():
         user = raw_input("Please enter a one word username, up to 10 characters: ")
     return user
 
-#
-# Pre-conditions:
-# Post-conditions:
+# Function name: chat()
+# Description: The main chat loop where the user and client take turns sending messages
+#     back and forth with each other until the connection is terminated
+# Arguments:
+#     conn - the connection that is established with the client when the socket accepted
+#         the connection
+#     user - the username of the server user
+#     client - the username of the client user
+# Pre-conditions: A socket accepts a connection with a client and a handshake occurs
+#     to retrieve the client username
+# Post-conditions: The client or server terminates the connection and the chat ends
 def chat(conn, user, client):
 
+    while True:
+        message = receive(conn, client).strip()
+        if not message or message.lower() == "\quit":
+            break
+        else:
+            print "{}> {}".format(client, message)
 
+        respond(raw_input("{}> ".format(user))[:500])
+
+
+# Function name: receive()
+# Description:
+# Pre-conditions: 
+# Post-conditions: 
+def receive(conn, client):
+    chunks = []
+    read = 0
+    while read < MSGLEN:
+        chunk = conn.recv(MSGLEN)
+        if not chunk:
+            break
+        else:
+            chunks.append(chunk)
+            read += len(chunk)
+    return ''.join(chunks)
 
 
 #########################################################################
