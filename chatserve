@@ -11,23 +11,28 @@
 ##     active waiting for more connections.
 ##
 
+import signal
 import sys
 import re
 from socket import *
 
-MSGLEN = 500
+MSGLEN = 500 # max message length for sending or receiving
 
-# Function name: run()
-# Description: The main function that starts the server
-# Pre-conditions: chatserve application is run, specifying a port on the command line
-# Post-conditions: chatserve server is running and listening for connections
+# Name: run()
+# Desc: The main function that starts the server.
+# Pre : chatserve application is run, specifying a port on the command line.
+# Post: chatserve server is running and listening for connections.
 def run():
     
     if len(sys.argv) != 2:
         sys.exit("Usage: chatserve [port]")
 
-    sock = setup()   # setup the socket connection
-    user = getUser() # prompt for a get the user's name
+    print("Welcome to chatserve, your friendly chatting server!")
+    print("(Press CTRL + C at any time to exit)")
+
+    signal.signal(signal.SIGINT, bye) # bind SIGINT signal to handler function
+    sock = setup()                    # setup the socket connection
+    user = getUser()                  # prompt for a get the user's name
     
     # run indefinitely until a SIGINT is received
     print("Welcome " + user + "!")
@@ -38,19 +43,18 @@ def run():
         conn, addr = sock.accept()
 
         # handshake with client to receive client's name 
-        client = conn.recv(11)[:-1] # expect max 10 chars, and remove trailing newline
+        client = conn.recv(10) # max 10 chars for username
         conn.send(user)
         print(client + " has joined the chatroom!")
 
         chat(conn, user, client) # begin chat loop
         conn.close()             # if the chat loop ends, close the connection
 
-# Function name: setup()
-# Description: Sets up a TCP socket on the port num specified on the command line and 
-#     begins listening
-# Pre-conditions: a port number was specified on the command line when the application
-#     was started
-# Post-conditions: a TCP socket is created on the specified port and begins listening
+
+# Name: setup()
+# Desc: Sets up a TCP socket on the port num specified on the command line and begins listening.
+# Pre : A port number was specified on the command line when the application was started.
+# Post: a TCP socket is created on the specified port and begins listening.
 def setup():
 
     # python socket programming info from official docs
@@ -61,11 +65,11 @@ def setup():
     sock.listen(1)
     return sock
 
-# Function name: getUser()
-# Description: Prompts for and gets username, using regex matching for validation of
-#     format
-# Pre-conditions: None
-# Post-conditions: A correctly formatted and validated username is returned
+
+# Name: getUser()
+# Desc: Prompts for and gets username, using regex matching for validation of format.
+# Pre : None.
+# Post: A correctly formatted and validated username is returned.
 def getUser():
 
     # python regex info from official docs
@@ -77,44 +81,89 @@ def getUser():
         user = raw_input("Please enter a one word username, up to 10 characters: ")
     return user
 
-# Function name: chat()
-# Description: The main chat loop where the user and client take turns sending messages
-#     back and forth with each other until the connection is terminated
-# Arguments:
-#     conn - the connection that is established with the client when the socket accepted
-#         the connection
-#     user - the username of the server user
-#     client - the username of the client user
-# Pre-conditions: A socket accepts a connection with a client and a handshake occurs
-#     to retrieve the client username
-# Post-conditions: The client or server terminates the connection and the chat ends
+
+# Name: chat()
+# Desc: The main chat loop where the user and client take turns sending messages
+#           back and forth with each other until the connection is terminated.
+# Arg1: conn - the connection that is established with the client when the socket accepted
+#           the connection.
+# Arg2: user - the username of the server user.
+# Arg3: client - the username of the client user.
+# Pre : A socket accepts a connection with a client and a handshake occurs
+#           to retrieve the client username.
+# Post: The client or server terminates the connection and the chat ends.
 def chat(conn, user, client):
 
     while True:
-        message = receive(conn, client).strip()
-        if not message or message.lower() == "\quit":
+        msg = receive(conn).strip()
+        # if connection terminated unexpectedly, message may be blank
+        if not msg or msg.lower() == '\quit':
+            print(client + " has left the chatroom.")
             break
         else:
-            print "{}> {}".format(client, message)
+            print "{}> {}".format(client, msg)
 
-        respond(raw_input("{}> ".format(user))[:500])
+        msg = (raw_input("{}> ".format(user)).strip())[:MSGLEN]
+        # even if quitting send the \quit message
+        respond(conn, msg) 
+        if msg.lower() == '\quit':
+            print("You have left the chatroom.")
+            break
+        else:
+            print "{}> {}".format(user, msg)
 
 
-# Function name: receive()
-# Description:
-# Pre-conditions: 
-# Post-conditions: 
-def receive(conn, client):
+# Name: receive()
+# Desc: Receives data from the connection up to the global max message length.
+# Arg1: conn - the data connection to receive data from.
+# Rtrn: string - the message received through the connection.
+# Pre : A connection is previously set up.
+# Post: A string is joined of all the chunks of data sent through the connection and returned.
+def receive(conn):
+
+    # python socket programming info from official docs
+    # https://docs.python.org/2/howto/sockets.html
     chunks = []
     read = 0
     while read < MSGLEN:
         chunk = conn.recv(MSGLEN)
-        if not chunk:
-            break
+        if chunk == '':
+            break # connection unexpectedly terminated
         else:
             chunks.append(chunk)
             read += len(chunk)
     return ''.join(chunks)
+
+
+# Name: respond()
+# Desc: Sends the specified message to the connection up to the global max message length.
+# Arg1: conn - the data connection to send data to.
+# Arg2: msg - the message to send.
+# Pre : A connection is previously set up and the message to send is obtained from the user.
+# Post: The message is sent to the client through the connection.
+def respond(conn, msg):
+
+    # python socket programming info from official docs
+    # https://docs.python.org/2/howto/sockets.html
+    total = 0
+    while total < MSGLEN:
+        sent = conn.send(msg[total:])
+        if sent == 0:
+            break # connection unexpectedly terminated
+        total += sent
+
+
+# Name: bye()
+# Desc: Signal handler to exit the program
+# Pre : CTRL + C is pressed / SIGINT signal is sent
+# Post: The program is exited
+def bye(signum, frame):
+
+    # python signal handling info from official docs 
+    # https://docs.python.org/2/library/signal.html
+    print("") # flush
+    print("chatserve is exiting... Goodbye!")
+    sys.exit(0)
 
 
 #########################################################################
