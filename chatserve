@@ -119,13 +119,13 @@ def chat(conn, user, client):
         except error as m:
             print("ERROR: could not receive message from client... Exiting chatroom.")
             break
-        if not msg or '\quit' in msg:
+        if not msg or '\quit' in msg.strip().lower():
             print(client + " has left the chatroom.")
             break
         else:
             print msg
 
-        buf = (raw_input("{}> ".format(user)).strip())[:bufLen]
+        buf = (raw_input("{}> ".format(user)))[:bufLen]
         msg = "{}> {}".format(user, buf)
         
         # even if quitting send the \quit message
@@ -134,7 +134,7 @@ def chat(conn, user, client):
         except error as m:
             print("ERROR: could not sent message to client... Exiting chatoom.")
             break
-        if msg.lower() == '\quit':
+        if buf.strip().lower() == '\quit':
             print("You have left the chatroom.")
             break
 

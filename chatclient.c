@@ -81,11 +81,11 @@ int main(int argc, char *argv[]) {
  * Definitions
  */
 
-// Name:
-// Desc:
-// Pre :
-// Post:
-// Rtrn:
+// Name: join()
+// Desc: Gets the server info, sets up the socket, and tries to connect to the server.
+// Pre : A host name and port number were declared on the command line and passed as args.
+// Post: The server either successfully connects and returns the socket file descriptor or exits.
+// Rtrn: The socket file descriptor for the connection.
 int join(char *host, char *port) {
     
     // Socket setup and connection from Beej's section A Simple Stream Client
@@ -124,11 +124,11 @@ int join(char *host, char *port) {
     return sock;
 }
 
-// Name:
-// Desc:
-// Pre :
-// Post:
-// Rtrn:
+// Name: getUser()
+// Desc: Prompts for user to enter a username and validates that it is a one word username up
+//           10 characters, and stores the name in the passed char array argument.
+// Pre : A char array is declared and passed as an argument.
+// Post: The user name is put in the char array.
 void getUser(char *name) {
     
     bool valid = false;
@@ -158,31 +158,33 @@ void getUser(char *name) {
     }
 }
 
-// Name:
-// Desc:
-// Pre :
-// Post:
-// Rtrn:
+// Name: chat()
+// Desc: The main chat loop between the user and server.
+// Pre : The connection is setup and a handshake is performed.
+// Post: The chat is ended either by connection being cut or either the user or server sending
+//           the '\quit' command.
 void chat(int conn, char *user, char *server) {
 
-    int usrLen = strlen(user);
-    char buf[MSGLEN-usrLen-1]; // leave room for prepending the user name + "> "
+    int msgNameLen = strlen(user)+2;
+    int rspNameLen = strlen(server)+2;
+    char msgBuf[MSGLEN+1-msgNameLen]; // leave room for prepending the user name + "> "
     char msg[MSGLEN+1]; // username + buffer = full message
+    char rspBuf[MSGLEN+1-rspNameLen];
     char rsp[MSGLEN+2]; // the server response
     int len;
 
     while (true) {
         
         // get user message to send
-        memset(buf, '\0', sizeof(buf));
-        printf("%s> ", user); 
+        memset(msgBuf, '\0', sizeof(msgBuf)); // clear buffer
+        printf("%s> ", user); // prompt user
         fflush(stdout);
-        fgets(buf, sizeof(buf), stdin);
-        buf[strcspn(buf, "\n")] = '\0'; 
+        fgets(msgBuf, sizeof(msgBuf), stdin); // get input
+        msgBuf[strcspn(msgBuf, "\n")] = '\0'; // remove trailing newline
 
         // create full message with prepended username
         memset(msg, '\0', sizeof(msg));
-        snprintf(msg, sizeof(msg), "%s> %s", user, buf);
+        snprintf(msg, sizeof(msg), "%s> %s", user, msgBuf);
 
         // send the message
         len = strlen(msg);
@@ -193,7 +195,8 @@ void chat(int conn, char *user, char *server) {
         }
        
         // check if quit command was entered by client
-        if (checkQuit(buf)) { 
+        // (even if so, the '\quit' message was also sent to the server still)
+        if (checkQuit(msgBuf)) { 
             printf("You have left the chatroom.\n");
             break; 
         }
@@ -206,7 +209,9 @@ void chat(int conn, char *user, char *server) {
                 exit(1);
             }
             // check if server sent quit command
-            if (checkQuit(rsp)) {
+            memset(rspBuf, '\0', sizeof(rspBuf));
+            strncpy(rspBuf, rsp+rspNameLen, strlen(rsp)-rspNameLen);      
+            if (checkQuit(rspBuf)) {
                 printf("%s has ended the chat.\n", server);
                 break; 
             } 
@@ -217,11 +222,11 @@ void chat(int conn, char *user, char *server) {
     }
 }
 
-// Name:
-// Desc:
-// Pre :
-// Post:
-// Rtrn:
+// Name: checkQuit()
+// Desc: Checks if a string is the command '\quit', ignoring case and any leading whitespace.
+// Pre : A char array containing the message is retrieved from the user or server and passed as an arg.
+// Post: The message is checked if it contains the '\quit' command
+// Rtrn: True if it matches, false otherwise.
 bool checkQuit(char *msg) {
 
     char cmd[4] = "quit";
@@ -232,6 +237,7 @@ bool checkQuit(char *msg) {
         if (!cmp) {
             if (msg[i] == ' ' || msg[i] == '\t') {} // skip whitespace
             else if (msg[i] == '\\') { cmp = true; } // start of '\quit' message encountered, start comparing
+            else { return false; } // non whitespace encountered but not start of '\quit' message
         } else if (tolower(msg[i]) == cmd[j])  {
             j++;
         } else {
@@ -239,18 +245,18 @@ bool checkQuit(char *msg) {
         }
     }
     if (cmp) { return true; } // if the comparison checks passed
-    else { return false; } // if not comparison every happened (no '\' was encountered)
+    else { return false; } // if comparison never happened (no '\' was encountered)
 }
 
-// Name:
-// Desc:
-// Pre :
-// Post:
-// Rtrn:
+// Name: sendMsg()
+// Desc: Handles the sending of a message to the server.
+// Pre : A message is retrieved from the user for sending.
+// Post: The entire message up to the provided length is sent to the server.
+// Rtrn: 0 if successful, or -1 if an error is encountered.
 int sendMsg(int conn, char *msg, int *len) {
     
-    // handling partial sends adpted from Beej's guide
-    // Handling Partial send()s
+    // handling partial sends taken from Beej's guide
+    // in the section 'Handling Partial send()s'
     // https://beej.us/guide/bgnet/html/#sendall
     int total = 0;
     int rem = *len;

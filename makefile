@@ -3,7 +3,6 @@
 ### Author: Andrew Swaim
 ### Date: October 2019
 ### Description: super simple makefile for chatclient
-###     deliverable for Project 1, CS372_400_F2019
 ###
 
 PROJ=chatclient
